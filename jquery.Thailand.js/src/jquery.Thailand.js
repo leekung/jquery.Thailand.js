@@ -17,147 +17,155 @@ $.Thailand = function (options) {
     options = $.extend({}, $.Thailand.defaults, options);
 
     var preprocess = function (data) {
-            var result = [];
-            for (var province in data) {
+        var result = [];
+        for (var province in data) {
+            if (data.hasOwnProperty(province)) {
                 var province_name = province.split('|')[0], province_code = province.split('|')[1] || false;
                 for (var amphoe in data[province]) {
-                    var amphoe_name = amphoe.split('|')[0], amphoe_code = amphoe.split('|')[1] || false;
-                    for (var district in data[province][amphoe]) {
-                        var district_name = district.split('|')[0], district_code = district.split('|')[1] || false;
-                        for (var i in data[province][amphoe][district]) {
-                            result.push({
-                                district: district_name,
-                                district_code: district_code,
-                                amphoe: amphoe_name,
-                                amphoe_code: amphoe_code,
-                                province: province_name,
-                                province_code: province_code,
-                                zipcode: data[province][amphoe][district][i],
-                            });
+                    if (data[province].hasOwnProperty(amphoe)) {
+                        var amphoe_name = amphoe.split('|')[0], amphoe_code = amphoe.split('|')[1] || false;
+                        for (var district in data[province][amphoe]) {
+                            if (data[province][amphoe].hasOwnProperty(district)) {
+                                var district_name = district.split('|')[0], district_code = district.split('|')[1] || false;
+                                for (var i in data[province][amphoe][district]) {
+                                    if (data[province][amphoe][district].hasOwnProperty(i)) {
+                                        result.push({
+                                            district: district_name,
+                                            district_code: district_code,
+                                            amphoe: amphoe_name,
+                                            amphoe_code: amphoe_code,
+                                            province: province_name,
+                                            province_code: province_code,
+                                            zipcode: data[province][amphoe][district][i],
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
-            return result;
-        },
-        similar_text = function (first, second, percentage) {
-            // compare 2 strings, return value of similarity compare to each other. more value = more similarity
-            first += '';
-            second += '';
+        }
+        return result;
+    },
+    similar_text = function (first, second, percentage) {
+        // compare 2 strings, return value of similarity compare to each other. more value = more similarity
+        first += '';
+        second += '';
 
-            var pos1 = 0,
-                pos2 = 0,
-                max = 0,
-                firstLength = first.length,
-                secondLength = second.length,
-                p,
-                q,
-                l,
-                sum;
+        var pos1 = 0,
+            pos2 = 0,
+            max = 0,
+            firstLength = first.length,
+            secondLength = second.length,
+            p,
+            q,
+            l,
+            sum;
 
-            for (p = 0; p < firstLength; p = p + 1) {
-                for (q = 0; q < secondLength; q = q + 1) {
-                    l = 0;
-                    while ((p + l < firstLength) && (q + l < secondLength) && (first.charAt(p + l) === second.charAt(q + l))) {
-                        l = l + 1;
-                    }
-                    if (l > max) {
-                        max = l;
-                        pos1 = p;
-                        pos2 = q;
-                    }
+        for (p = 0; p < firstLength; p = p + 1) {
+            for (q = 0; q < secondLength; q = q + 1) {
+                l = 0;
+                while ((p + l < firstLength) && (q + l < secondLength) && (first.charAt(p + l) === second.charAt(q + l))) {
+                    l = l + 1;
+                }
+                if (l > max) {
+                    max = l;
+                    pos1 = p;
+                    pos2 = q;
                 }
             }
+        }
 
-            sum = max;
+        sum = max;
 
-            if (sum) {
-                if (pos1 && pos2) {
-                    sum += similar_text(first.substr(0, pos2), second.substr(0, pos2), false);
-                }
-
-                if ((pos1 + max < firstLength) && (pos2 + max < secondLength)) {
-                    sum += similar_text(first.substr(pos1 + max, firstLength - pos1 - max), second.substr(pos2 + max, secondLength - pos2 - max), false);
-                }
+        if (sum) {
+            if (pos1 && pos2) {
+                sum += similar_text(first.substr(0, pos2), second.substr(0, pos2), false);
             }
 
-            if (percentage === false) {
-                return sum;
+            if ((pos1 + max < firstLength) && (pos2 + max < secondLength)) {
+                sum += similar_text(first.substr(pos1 + max, firstLength - pos1 - max), second.substr(pos2 + max, secondLength - pos2 - max), false);
+            }
+        }
+
+        if (percentage === false) {
+            return sum;
+        } else {
+            if (first === second) {
+                return 100;
             } else {
-                if (first === second) {
-                    return 100;
+                if (firstLength > secondLength) {
+                    return Math.floor(sum / firstLength * 100);
                 } else {
-                    if (firstLength > secondLength) {
-                        return Math.floor(sum / firstLength * 100);
-                    } else {
-                        return Math.floor(sum / secondLength * 100);
+                    return Math.floor(sum / secondLength * 100);
+                }
+            }
+        }
+    },
+    loadDB = function (callback) {
+        var type = options.database_type.toLowerCase(),
+            xhr;
+
+        if (type !== 'json' && type !== 'zip') {
+            type = options.database.split('.').pop(); // attempt to figure from file extension instead
+        }
+
+        switch (type) {
+
+        case 'json':
+
+            $.getJSON(options.database, function (json) {
+                callback(new JQL(preprocess(json)));
+            }).fail(function (err) {
+                throw new Error('File "' + options.database + '" is not exists.');
+            });
+            break;
+
+        case 'zip':
+
+            if (!options.zip_worker_path) {
+                $('script').each(function () {
+                    var fragments = this.src.split('/'),
+                        filename = fragments.pop();
+                    if (filename === 'zip.js') {
+                        zip.workerScriptsPath = fragments.join('/') + '/';
                     }
-                }
-            }
-        },
-        loadDB = function (callback) {
-            var type = options.database_type.toLowerCase(),
-                xhr;
-
-            if (type !== 'json' && type !== 'zip') {
-                type = options.database.split('.').pop(); // attempt to figure from file extension instead
-            }
-
-            switch (type) {
-
-            case 'json':
-
-                $.getJSON(options.database, function (json) {
-                    callback(new JQL(preprocess(json)));
-                }).fail(function (err) {
-                    throw new Error('File "' + options.database + '" is not exists.');
                 });
-                break;
+            }
 
-            case 'zip':
+            xhr = new XMLHttpRequest();
+            xhr.responseType = 'blob';
 
-                if (!options.zip_worker_path) {
-                    $('script').each(function () {
-                        var fragments = this.src.split('/'),
-                            filename = fragments.pop();
-                        if (filename === 'zip.js') {
-                            zip.workerScriptsPath = fragments.join('/') + '/';
-                        }
-                    });
-                }
-
-                xhr = new XMLHttpRequest();
-                xhr.responseType = 'blob';
-
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState === 4) {
-                        if (xhr.status === 200) {
-                            zip.createReader(new zip.BlobReader(xhr.response), function (zipReader) {
-                                zipReader.getEntries(function (r) {
-                                    r[0].getData(new zip.BlobWriter(), function (blob) {
-                                        var reader = new FileReader();
-                                        reader.onload = function () {
-                                            callback(new JQL(preprocess(JSON.parse(reader.result))));
-                                        };
-                                        reader.readAsText(blob);
-                                    });
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        zip.createReader(new zip.BlobReader(xhr.response), function (zipReader) {
+                            zipReader.getEntries(function (r) {
+                                r[0].getData(new zip.BlobWriter(), function (blob) {
+                                    var reader = new FileReader();
+                                    reader.onload = function () {
+                                        callback(new JQL(preprocess(JSON.parse(reader.result))));
+                                    };
+                                    reader.readAsText(blob);
                                 });
                             });
-                        } else {
-                            throw new Error('File "' + options.database + '" is not exists.');
-                        }
+                        });
+                    } else {
+                        throw new Error('File "' + options.database + '" is not exists.');
                     }
-                };
-                xhr.open('GET', options.database);
-                xhr.send();
+                }
+            };
+            xhr.open('GET', options.database);
+            xhr.send();
 
-                break;
+            break;
 
-            default:
-                throw new Error('Unknown database type: "' + options.database_type + '". Please define database_type explicitly (json or zip)');
-            }
+        default:
+            throw new Error('Unknown database type: "' + options.database_type + '". Please define database_type explicitly (json or zip)');
+        }
 
-        };
+    };
 
     // get database
     loadDB(function (DB) {
