@@ -1,7 +1,7 @@
 /**
  * @name jquery.Thailand.js
- * @version 1.5.3.4
- * @update Feb 27, 2018
+ * @version 1.5.3.5
+ * @update May 31, 2018
  * @website https://github.com/earthchie/jquery.Thailand.js
  * @license WTFPL v.2 - http://www.wtfpl.net/
  *
@@ -17,62 +17,28 @@ $.Thailand = function (options) {
     options = $.extend({}, $.Thailand.defaults, options);
 
     var preprocess = function (data) {
-            var lookup = [],
-                words = [],
-                expanded = [],
-                t;
-
-            if (data.lookup && data.words) {
-                // compact with dictionary and lookup
-                lookup = data.lookup.split('|');
-                words = data.words.split('|');
-                data = data.data;
+            var result = [];
+            for (var province in data) {
+                var province_name = province.split('|')[0], province_code = province.split('|')[1] || false;
+                for (var amphoe in data[province]) {
+                    var amphoe_name = amphoe.split('|')[0], amphoe_code = amphoe.split('|')[1] || false;
+                    for (var district in data[province][amphoe]) {
+                        var district_name = district.split('|')[0], district_code = district.split('|')[1] || false;
+                        for (var i in data[province][amphoe][district]) {
+                            result.push({
+                                district: district_name,
+                                district_code: district_code,
+                                amphoe: amphoe_name,
+                                amphoe_code: amphoe_code,
+                                province: province_name,
+                                province_code: province_code,
+                                zipcode: data[province][amphoe][district][i],
+                            });
+                        }
+                    }
+                }
             }
-
-            t = function (text) {
-                
-                function repl(m) {
-                    var ch = m.charCodeAt(0);
-                    return words[ch < 97 ? ch - 65 : 26 + ch - 97];
-                }
-                
-                if (typeof text === 'number') {
-                    text = lookup[text];
-                }
-                return text.replace(/[A-Z]/ig, repl);
-            };
-
-            // decompacted database in hierarchical form of:
-            // [["province",[["amphur",[["district",["zip"...]]...]]...]]...]
-            data.map(function (provinces) {
-
-                var i = 1;
-                if(provinces.length === 3){ // geographic database
-                    i = 2;
-                }
-
-                provinces[i].map(function (amphoes) {
-                    amphoes[i].map(function (districts) {
-                        districts[i] = districts[i] instanceof Array ? districts[i] : [districts[i]];
-                        districts[i].map(function (zipcode) {
-                            var entry = {
-                                district: t(districts[0]),
-                                amphoe: t(amphoes[0]),
-                                province: t(provinces[0]),
-                                zipcode: zipcode
-                            };
-                            if(i === 2){ // geographic database
-                                entry.district_code = districts[1] || false;
-                                entry.amphoe_code = amphoes[1] || false;
-                                entry.province_code = provinces[1] || false;
-                            }
-                            expanded.push(entry);
-                        });
-                    });
-                });
-
-            });
-            return expanded;
+            return result;
         },
         similar_text = function (first, second, percentage) {
             // compare 2 strings, return value of similarity compare to each other. more value = more similarity
@@ -195,7 +161,9 @@ $.Thailand = function (options) {
 
     // get database
     loadDB(function (DB) {
-        $.Thailand.DB = DB;
+        var id = options.id || 0;
+        $.Thailand.DB = $.Thailand.DB ? $.Thailand.DB : {};
+        $.Thailand.DB[id] = DB;
         var i,
             key,
             templates = { // template of autocomplete choices
@@ -322,10 +290,11 @@ $.Thailand = function (options) {
     });
 };
 $.Thailand.defaults = {
-    database: 'https://earthchie.github.io/jquery.Thailand.js/jquery.Thailand.js/database/db.json',
+    database: '../database/raw_database/db.json',
     database_type: 'auto', // json or zip; any other value will be ignored and script will attempt to evaluate the type from file extension instead.
     zip_worker_path: false, // path to zip worker folder e.g. './jquery.Thailand.js/dependencies/zip.js/'; Leave it to false unless you found any error.
     autocomplete_size: 20,
+    id: "0",
 
     onLoad: function () {},
     onDataFill: function () {},

@@ -138,12 +138,13 @@
         // for more info check README.md
 
         $.Thailand({
-            database: './jquery.Thailand.js/database/db.json', 
+            database: './jquery.Thailand.js/database/db-th.json', 
 
             $district: $('#demo1 [name="district"]'),
             $amphoe: $('#demo1 [name="amphoe"]'),
             $province: $('#demo1 [name="province"]'),
             $zipcode: $('#demo1 [name="zipcode"]'),
+            id: "0",
 
             onDataFill: function(data){
                 console.info('Data Filled', data);
@@ -176,8 +177,9 @@
         // demo 2: load database from zip. for those who doesn't have server that supported gzip.
         // for more info check README.md
         $.Thailand({
-            database: './jquery.Thailand.js/database/db.zip', 
+            database: './jquery.Thailand.js/database/db-en.zip', 
             $search: $('#demo2 [name="search"]'),
+            id: "1",
 
             onDataFill: function(data){
                 console.log(data)
